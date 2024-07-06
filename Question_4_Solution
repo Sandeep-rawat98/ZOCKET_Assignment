@@ -1,0 +1,100 @@
+Apache Airflow is an open-source platform to programmatically author, schedule, and monitor workflows. It allows users to define workflows as Directed Acyclic Graphs (DAGs) of tasks, with each task representing a single unit of work. Airflow is highly flexible and can be used to manage complex workflows, ensuring tasks are executed in a specific order with defined dependencies.
+
+Role in Building and Managing ETL Pipelines:
+
+Apache Airflow plays a critical role in building and managing ETL pipelines by providing the following functionalities:
+
+	1.Workflow Orchestration: Airflow enables the creation of DAGs to orchestrate the sequence and dependencies of ETL tasks.
+	2.Scheduling: It allows scheduling of workflows to run at specified intervals or trigger-based conditions.
+	3.Monitoring: Airflow provides a web-based UI to monitor the status of workflows, view logs, and manage tasks.
+	4.Scalability: It supports scaling out by distributing tasks across multiple workers.
+	5.Retry and Failure Handling: Airflow can automatically retry failed tasks and define custom failure handling mechanisms.
+	6.Integration: Airflow integrates with various data sources and destinations, including databases, cloud storage, APIs, and more.
+	
+Below is an example of an Airflow DAG that orchestrates the ETL process for extracting, transforming, and loading event data from CleverTap into a data warehouse.
+
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
+from datetime import datetime, timedelta
+import requests
+import pandas as pd
+from sqlalchemy import create_engine
+
+# Configuration
+CLEVERTAP_API_URL = "https://api.clevertap.com/1.0/profile.json"
+CLEVERTAP_API_KEY = "your_api_key"
+DATA_WAREHOUSE_URL = "postgresql+psycopg2://user:password@hostname/dbname"
+TABLE_NAME = "clevertap_events"
+
+# Default arguments for the DAG
+default_args = {
+    'owner': 'airflow',
+    'depends_on_past': False,
+    'start_date': datetime(2024, 7, 6),
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
+}
+
+# Define the DAG
+dag = DAG(
+    'clevertap_etl',
+    default_args=default_args,
+    description='ETL pipeline to extract data from CleverTap and load into data warehouse',
+    schedule_interval=timedelta(days=1),
+)
+
+# Step 1: Extract
+def fetch_event_data():
+    headers = {
+        'Authorization': f'Bearer {CLEVERTAP_API_KEY}',
+        'Content-Type': 'application/json'
+    }
+    response = requests.get(CLEVERTAP_API_URL, headers=headers)
+    response.raise_for_status()
+    data = response.json()
+    # Save the raw data to a temporary file
+    with open('/tmp/raw_data.json', 'w') as f:
+        json.dump(data, f)
+
+fetch_task = PythonOperator(
+    task_id='fetch_event_data',
+    python_callable=fetch_event_data,
+    dag=dag,
+)
+
+# Step 2: Transform
+def transform_event_data():
+    with open('/tmp/raw_data.json', 'r') as f:
+        raw_data = json.load(f)
+    df = pd.DataFrame(raw_data['d']['events'])
+    # Example transformations
+    df['timestamp'] = pd.to_datetime(df['ts'])
+    df = df.dropna(subset=['timestamp'])
+    df['event_name'] = df['evt_name']
+    df = df[['timestamp', 'event_name', 'evt_data']]
+    # Save the transformed data to a temporary file
+    df.to_csv('/tmp/transformed_data.csv', index=False)
+
+transform_task = PythonOperator(
+    task_id='transform_event_data',
+    python_callable=transform_event_data,
+    dag=dag,
+)
+
+# Step 3: Load
+def load_data_to_warehouse():
+    df = pd.read_csv('/tmp/transformed_data.csv')
+    engine = create_engine(DATA_WAREHOUSE_URL)
+    with engine.connect() as connection:
+        df.to_sql(TABLE_NAME, con=connection, if_exists='append', index=False)
+
+load_task = PythonOperator(
+    task_id='load_data_to_warehouse',
+    python_callable=load_data_to_warehouse,
+    dag=dag,
+)
+
+# Define task dependencies
+fetch_task >> transform_task >> load_task
