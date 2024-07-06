@@ -1,0 +1,74 @@
+Question 1: Data Source Integration
+
+        Extracting Data from Facebook Ads and Google Ads APIs
+
+		Facebook Ads API:
+
+		(A) Authentication Process:
+
+			1.Register your app with the Facebook Developer Portal to get the App ID and App Secret.
+			2.Obtain a user access token through the OAuth flow, exchanging the token for a long-lived token.
+			3. Use the access token to make authenticated API requests.
+		
+		import requests
+
+		app_id = 'YOUR_APP_ID'
+		app_secret = 'YOUR_APP_SECRET'
+		user_access_token = 'USER_ACCESS_TOKEN'
+
+		url = f'https://graph.facebook.com/oauth/access_token?client_id={app_id}&client_secret={app_secret}&grant_type=fb_exchange_token&fb_exchange_token={user_access_token}'
+
+		response = requests.get(url)
+		access_token = response.json()['access_token']
+
+		(B) Handling API Rate Limits:
+		
+			1. Implement exponential backoff and retry mechanisms in case of rate limit errors.
+			2. Monitor the API usage and implement caching to minimize redundant API calls.
+			3. Use batch processing to reduce the number of API calls.
+		
+		import time
+
+		def api_call_with_backoff(url, retries=5):
+			for i in range(retries):
+				response = requests.get(url)
+				if response.status_code == 200:
+					return response.json()
+				elif response.status_code == 429:
+					time.sleep(2 ** i)  # Exponential backoff
+				else:
+					response.raise_for_status()
+
+		Google Ads API:
+
+		(A) Authentication Process:
+
+			1. Create a project in the Google Cloud Console and enable the Google Ads API.
+			2. Obtain OAuth 2.0 credentials (Client ID and Client Secret).
+			3. Perform OAuth 2.0 authorization to get the refresh token.
+			4. Use the refresh token to get an access token and make authenticated API requests.
+		
+			from google_auth_oauthlib.flow import InstalledAppFlow
+
+			flow = InstalledAppFlow.from_client_secrets_file('client_secrets.json', scopes=['https://www.googleapis.com/auth/adwords'])
+			credentials = flow.run_local_server(port=0)
+
+
+		(B) Handling API Rate Limits:
+		
+			1. Implement exponential backoff and retry mechanisms in case of rate limit errors.
+			2. Monitor the API usage and implement caching to minimize redundant API calls.
+			3. Use batch processing to reduce the number of API calls.
+		
+			def google_ads_api_call(service, resource_name, method_name, **kwargs):
+				service_method = getattr(getattr(service, resource_name), method_name)
+				try:
+					response = service_method(**kwargs).execute()
+					return response
+				except HttpError as err:
+					if err.resp.status in [403, 429]:
+						time.sleep(10)  # Handle rate limit
+						return google_ads_api_call(service, resource_name, method_name, **kwargs)
+					else:
+						raise
+	
