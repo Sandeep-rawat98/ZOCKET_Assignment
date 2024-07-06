@@ -1,0 +1,46 @@
+In the context of ETL pipelines, several common data transformation challenges can arise. These challenges often involve handling data quality issues, ensuring data consistency, and transforming data to meet business requirements or match the schema of the destination database. Below are some common data transformation challenges and examples of transformations that might be required before loading the data into the destination.
+
+Common Data Transformation Challenges:
+	1.Data Quality Issues:
+		Missing Values: Handling null or missing values in the dataset.
+		Duplicate Records: Identifying and removing duplicate records.
+		Inconsistent Formats: Standardizing different data formats (e.g., date formats, numeric formats).
+		
+	2.Data Cleaning:
+		Incorrect Data: Correcting or removing inaccurate data entries.
+		Outliers: Detecting and managing outliers in the dataset.
+		Invalid Data: Validating data against defined rules or constraints.
+
+	3.Data Normalization:
+		Standardizing Units: Converting data to a common unit of measurement.
+		Categorization: Converting free-text fields to standardized categories.
+
+	4.Data Integration:
+		Schema Alignment: Transforming data to match the schema of the destination database.
+		Key Mapping: Ensuring consistency in primary and foreign keys across datasets.
+
+	5.Data Aggregation:
+		Summarizing Data: Aggregating data to compute summaries (e.g., totals, averages).
+		Grouping Data: Grouping data by specific fields to perform aggregations.
+
+	6.Data Enrichment:
+		Adding Contextual Information: Enriching data with additional information from other sources.
+		Derived Fields: Creating new fields based on existing data (e.g., calculated fields)
+
+Examples of Data Transformations:
+
+1.Handling Missing Values:
+  df['column_name'].fillna(df['column_name'].mean(), inplace=True)  # Imputation with mean
+  df.dropna(subset=['column_name'], inplace=True)  # Dropping rows with missing values in a specific column
+
+2.Removing Duplicates:
+  df.drop_duplicates(inplace=True)
+
+3.Standardizing Date Formats:
+  df['date_column'] = pd.to_datetime(df['date_column'], format='%Y-%m-%d')
+
+4.Data Type Conversion:
+  df['numeric_column'] = pd.to_numeric(df['numeric_column'])
+
+5.Aggregating Data:
+  df_agg = df.groupby('group_column').agg({'numeric_column': 'sum'})
